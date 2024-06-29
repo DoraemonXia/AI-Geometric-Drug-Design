@@ -133,7 +133,9 @@ file_name = "../../../Workspace/Combs/data/LigandMPNN/Protein_Metal/1dwh.pdb"
 backbone, pdb_seq = get_pdb_file_information(file_name)
 '''
 
-def write_coords_to_pdb(coords: np.ndarray, out_fname: str) -> str:
+import numpy as np
+
+def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False) -> str:
     """
     Write the coordinates to the given pdb fname
     """
@@ -184,10 +186,11 @@ def write_coords_to_pdb(coords: np.ndarray, out_fname: str) -> str:
     full_structure = struc.array(atoms)
 
     # Add bonds
-    full_structure.bonds = struc.BondList(full_structure.array_length())
-    indices = list(range(full_structure.array_length()))
-    for a, b in zip(indices[:-1], indices[1:]):
-        full_structure.bonds.add_bond(a, b, bond_type=struc.BondType.SINGLE)
+    if if_bonds:
+        full_structure.bonds = struc.BondList(full_structure.array_length())
+        indices = list(range(full_structure.array_length()))
+        for a, b in zip(indices[:-1], indices[1:]):
+            full_structure.bonds.add_bond(a, b, bond_type=struc.BondType.SINGLE)
 
     # Annotate secondary structure using CA coordinates
     # https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html

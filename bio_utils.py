@@ -4,6 +4,11 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+from biotite.structure.io.pdb import PDBFile
+from biotite.sequence import ProteinSequence
+import biotite.structure as struc
+
+
 def contains_functional_group(molecule_smiles, functional_group_smarts):
     """
     判断给定的分子是否包含指定的官能团。
@@ -71,7 +76,6 @@ names = ["seq_1", "seq_2", "seq_3"]
 generate_fasta(rna_sequences, names, fasta_file_path='output.fasta', reverse=True)
 '''
 
-
 def smiles_to_ecfp1024(smiles_list):
     fingerprints = []
     for smiles in smiles_list:
@@ -93,4 +97,112 @@ def smiles_to_ecfp1024(smiles_list):
 # Example usage:
 smiles_list = ["","",""]
 smiles_to_ecfp1024(smiles_list)
+'''
+
+
+def get_pdb_file_information( file_name, if_multi_struc = False ):
+    """
+    from pdb file generate backbone and pdb_seq
+    """
+    structure = PDBFile.read(file_name)
+
+    backbone_list = []
+    pdb_seq_list = []
+    
+    for i in range(len(structure.get_structure())):
+        chain = structure.get_structure()[i]  #There has a problem about multi model or multi chain
+
+        backbone = chain[struc.filter_backbone(chain)]   #this is backbone including N, CA, C atom
+
+        amino_acids = [ProteinSequence.convert_letter_3to1( backbone.res_name[3*i] ) for i in range(int(len(backbone.res_name)/3))]
+        pdb_seq = ""
+        for j in amino_acids:
+            pdb_seq+=j
+            
+        backbone_list.append(backbone)
+        pdb_seq_list.append(pdb_seq)
+            
+    if if_multi_struc:
+        return backbone_list, pdb_seq_list
+    else:
+        return backbone_list[0], pdb_seq_list[0]
+ 
+'''
+# Example usage:
+file_name = "../../../Workspace/Combs/data/LigandMPNN/Protein_Metal/1dwh.pdb"
+backbone, pdb_seq = get_pdb_file_information(file_name)
+'''
+
+def write_coords_to_pdb(coords: np.ndarray, out_fname: str) -> str:
+    """
+    Write the coordinates to the given pdb fname
+    """
+    # Create a new PDB file using biotite
+    # https://www.biotite-python.org/tutorial/target/index.html#creating-structures
+    assert len(coords) % 3 == 0, f"Expected 3N coords, got {len(coords)}"
+    atoms = []
+    for i, (n_coord, ca_coord, c_coord) in enumerate(
+        (coords[j : j + 3] for j in range(0, len(coords), 3))
+    ):
+        atom1 = struc.Atom(
+            n_coord,
+            chain_id="A",
+            res_id=i + 1,
+            atom_id=i * 3 + 1,
+            res_name="GLY",
+            atom_name="N",
+            element="N",
+            occupancy=1.0,
+            hetero=False,
+            b_factor=5.0,
+        )
+        atom2 = struc.Atom(
+            ca_coord,
+            chain_id="A",
+            res_id=i + 1,
+            atom_id=i * 3 + 2,
+            res_name="GLY",
+            atom_name="CA",
+            element="C",
+            occupancy=1.0,
+            hetero=False,
+            b_factor=5.0,
+        )
+        atom3 = struc.Atom(
+            c_coord,
+            chain_id="A",
+            res_id=i + 1,
+            atom_id=i * 3 + 3,
+            res_name="GLY",
+            atom_name="C",
+            element="C",
+            occupancy=1.0,
+            hetero=False,
+            b_factor=5.0,
+        )
+        atoms.extend([atom1, atom2, atom3])
+    full_structure = struc.array(atoms)
+
+    # Add bonds
+    full_structure.bonds = struc.BondList(full_structure.array_length())
+    indices = list(range(full_structure.array_length()))
+    for a, b in zip(indices[:-1], indices[1:]):
+        full_structure.bonds.add_bond(a, b, bond_type=struc.BondType.SINGLE)
+
+    # Annotate secondary structure using CA coordinates
+    # https://www.biotite-python.org/apidoc/biotite.structure.annotate_sse.html
+    # https://academic.oup.com/bioinformatics/article/13/3/291/423201
+    # a = alpha helix, b = beta sheet, c = coil
+    # ss = struc.annotate_sse(full_structure, "A")
+    # full_structure.set_annotation("secondary_structure_psea", ss)
+
+    sink = PDBFile()
+    sink.set_structure(full_structure)
+    sink.write(out_fname)
+    return out_fname
+
+'''
+# Example usage:
+backbone_coord = np.array( [ backbone[i].coord for i in range(len(backbone)) ] )
+write_coords_to_pdb( backbone_coord, "test_0.pdb" )
 '''

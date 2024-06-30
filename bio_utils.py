@@ -107,26 +107,30 @@ smiles_to_ecfp1024(smiles_list)
 '''
 
 
-def get_pdb_file_information( file_name, if_multi_struc = False ):
+def get_pdb_file_information( file_name, if_multi_struc = False, atoms = ["N", "CA", "C", "O"] ):
     """
-    from pdb file generate backbone and pdb_seq
+    Get PDB seq and backbone atom from .pdb file
     """
     structure = PDBFile.read(file_name)
-
     backbone_list = []
     pdb_seq_list = []
     
     for i in range(len(structure.get_structure())):
         chain = structure.get_structure()[i]  #There has a problem about multi model or multi chain
 
-        backbone = chain[struc.filter_backbone(chain)]   #this is backbone including N, CA, C atom
-
-        amino_acids = [ProteinSequence.convert_letter_3to1( backbone.res_name[3*i] ) for i in range(int(len(backbone.res_name)/3))]
+        # backbone = chain[struc.filter_backbone(chain)]   #this is backbone including N, CA, C atom
+        
+        amino_acids_atoms = chain[struc.filter_amino_acids(chain)]  #filter atom in amino acids
+        
+        selected_atoms = [c for c in amino_acids_atoms if c.atom_name in atoms] #this is backbone including N, CA, C, and O atom
+        
+        amino_acids = [ProteinSequence.convert_letter_3to1( selected_atoms[len(atoms)*i].res_name ) for i in range(int(len(selected_atoms)/len(atoms)))]
+    
         pdb_seq = ""
         for j in amino_acids:
             pdb_seq+=j
             
-        backbone_list.append(backbone)
+        backbone_list.append(selected_atoms)
         pdb_seq_list.append(pdb_seq)
             
     if if_multi_struc:
@@ -138,26 +142,25 @@ def get_pdb_file_information( file_name, if_multi_struc = False ):
 # Example usage:
 file_name = "../../../Workspace/Combs/data/LigandMPNN/Protein_Metal/1dwh.pdb"
 backbone, pdb_seq = get_pdb_file_information(file_name)
+backbone_coord = np.array( [ backbone[i].coord for i in range(len(backbone)) ] )
 '''
 
-import numpy as np
-
-def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False) -> str:
+def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False, select_atoms = ["N", "CA", "C", "O"] ) -> str:
     """
     Write the coordinates to the given pdb fname
     """
     # Create a new PDB file using biotite
     # https://www.biotite-python.org/tutorial/target/index.html#creating-structures
-    assert len(coords) % 3 == 0, f"Expected 3N coords, got {len(coords)}"
+    assert len(coords) % len(select_atoms) == 0, f"Expected "+str(len(select_atoms))+"N coords, got {len(coords)}"
     atoms = []
-    for i, (n_coord, ca_coord, c_coord) in enumerate(
-        (coords[j : j + 3] for j in range(0, len(coords), 3))
+    for i, (n_coord, ca_coord, c_coord, o_coord) in enumerate(
+        (coords[j : j + len(select_atoms)] for j in range(0, len(coords), len(select_atoms) ))
     ):
         atom1 = struc.Atom(
             n_coord,
             chain_id="A",
             res_id=i + 1,
-            atom_id=i * 3 + 1,
+            atom_id=i * len(select_atoms) + 1,
             res_name="GLY",
             atom_name="N",
             element="N",
@@ -169,7 +172,7 @@ def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False) ->
             ca_coord,
             chain_id="A",
             res_id=i + 1,
-            atom_id=i * 3 + 2,
+            atom_id=i * len(select_atoms) + 2,
             res_name="GLY",
             atom_name="CA",
             element="C",
@@ -181,7 +184,7 @@ def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False) ->
             c_coord,
             chain_id="A",
             res_id=i + 1,
-            atom_id=i * 3 + 3,
+            atom_id=i * len(select_atoms) + 3,
             res_name="GLY",
             atom_name="C",
             element="C",
@@ -189,7 +192,19 @@ def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False) ->
             hetero=False,
             b_factor=5.0,
         )
-        atoms.extend([atom1, atom2, atom3])
+        atom4 = struc.Atom(
+            o_coord,
+            chain_id="A",
+            res_id=i + 1,
+            atom_id=i * len(select_atoms) + 4,
+            res_name="GLY",
+            atom_name="O",
+            element="O",
+            occupancy=1.0,
+            hetero=False,
+            b_factor=5.0,
+        )
+        atoms.extend([atom1, atom2, atom3, atom4])
     full_structure = struc.array(atoms)
 
     # Add bonds
@@ -213,8 +228,19 @@ def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False) ->
 
 '''
 # Example usage:
-backbone_coord = np.array( [ backbone[i].coord for i in range(len(backbone)) ] )
-write_coords_to_pdb( backbone_coord, "test_0.pdb" )
+origin_seq = []
+file_list = []
+for i in range( 1500 ):
+    try:
+        backbone, pdb_seq = get_pdb_file_information( files[i] )
+        #backbone_coord = extract_backbone_coords(files[i])
+        assert len(backbone)==4*len(pdb_seq)
+        backbone_coord = np.array( [ backbone[i].coord for i in range(len(backbone)) ] )
+        write_coords_to_pdb( backbone_coord, "backbone/"+all_files_and_folders[i] )
+        origin_seq.append( pdb_seq )
+        file_list.append(all_files_and_folders[i])
+    except:
+        print(all_files_and_folders[i])
 '''
 
 import gzip

@@ -1,12 +1,19 @@
+import gzip
 import numpy as np
 import pandas as pd
-            
+from typing import Collection, Optional, Literal
+
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
 from biotite.structure.io.pdb import PDBFile
 from biotite.sequence import ProteinSequence
 import biotite.structure as struc
+
+
+
+
+from biotite.structure import AtomArray, filter_backbone,filter_amino_acids
 
 
 def contains_functional_group(molecule_smiles, functional_group_smarts):
@@ -209,3 +216,25 @@ def write_coords_to_pdb(coords: np.ndarray, out_fname: str, if_bonds = False) ->
 backbone_coord = np.array( [ backbone[i].coord for i in range(len(backbone)) ] )
 write_coords_to_pdb( backbone_coord, "test_0.pdb" )
 '''
+
+import gzip
+from typing import Collection, Optional, Literal
+import numpy as np
+from biotite.structure.io.pdb import PDBFile
+from biotite.structure import AtomArray, filter_backbone,filter_amino_acids
+
+def extract_backbone_coords(
+    fname: str, atoms: Collection[Literal["N", "CA", "C", "O"]] = ["N", "CA", "C", "O"]
+) -> Optional[np.ndarray]:
+    """Extract the coordinates of specified backbone atoms"""
+    opener = gzip.open if fname.endswith(".gz") else open
+    with opener(str(fname), "rt") as f:
+        structure = PDBFile.read(f)
+    # if structure.get_model_count() > 1:
+    #     return None
+    chain = structure.get_structure()[0]
+    #backbone = chain
+    amino_acids = chain[filter_amino_acids(chain)]  #filter atom in amino acids
+    selected_atoms = [c for c in amino_acids if c.atom_name in atoms]
+    coords = np.vstack([c.coord for c in selected_atoms])
+    return coords

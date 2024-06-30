@@ -238,3 +238,34 @@ def extract_backbone_coords(
     selected_atoms = [c for c in amino_acids if c.atom_name in atoms]
     coords = np.vstack([c.coord for c in selected_atoms])
     return coords
+
+
+
+
+from Bio import SeqIO
+import os
+
+def split_fasta(input_fasta, output_dir, chunk_size=100):
+    """
+    Split fasta files
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)  # 创建输出目录
+
+    base_name = os.path.basename(input_fasta)
+    name, ext = os.path.splitext(base_name)
+
+    records = list(SeqIO.parse(input_fasta, "fasta"))
+
+    for i in range(0, len(records), chunk_size):
+        chunk_records = records[i:i+chunk_size]
+        output_file = os.path.join(output_dir, f"{name}_{i//chunk_size}{ext}")
+        SeqIO.write(chunk_records, output_file, "fasta")
+        print(f"Saved {len(chunk_records)} records to {output_file}")
+
+'''
+# Example usage:
+input_fasta = "output.fasta"  # 输入的FASTA文件路径
+output_dir = "output/"  # 输出目录
+split_fasta(input_fasta, output_dir)
+'''

@@ -35,3 +35,40 @@ def images_to_pdf(folder_path, output_pdf, include_title=False):
 # output_pdf = "Robin_RNA.pdf"  # 输出PDF文件的路径
 # include_title = True  # 是否在每页添加标题
 # images_to_pdf(folder_path, output_pdf, include_title)
+
+
+from PIL import Image
+#need pip install pillow
+
+def convert_white_to_transparent(input_image_path, output_image_path):
+    """
+    Transfer graph with white color as background color into opticify as background color.
+    """
+    image = Image.open(input_image_path).convert("RGBA")
+
+    # 获取图像的像素数据
+    datas = image.getdata()
+
+    new_data = []
+    for item in datas:
+        # 改变白色（也是透明的）背景为透明
+        if item[0] > 200 and item[1] > 200 and item[2] > 200:
+            new_data.append((255, 255, 255, 0))  # 更改透明
+        else:
+            new_data.append(item)
+
+    # 更新图像的数据
+    image.putdata(new_data)
+
+    # 保存图像
+    image.save(output_image_path, "PNG")
+
+
+"""
+Example Usage:
+input_image_path = "pic/Pic_new/SAM_II.png"  # input filepath of graph
+output_image_path = "pic/Pic_new/SAM_II_new.png"  # output filepath of graph
+
+convert_white_to_transparent(input_image_path, output_image_path)
+print(f"Saved transparent image to {output_image_path}")
+"""

@@ -9,7 +9,7 @@ from rdkit.Chem import AllChem
 from biotite.structure.io.pdb import PDBFile
 from biotite.sequence import ProteinSequence
 import biotite.structure as struc
-
+from Bio import SeqIO
 
 
 
@@ -33,7 +33,6 @@ def contains_functional_group(molecule_smiles, functional_group_smarts):
         return True
     else:
         return False
-    
 
 """
 how to use
@@ -43,6 +42,24 @@ how to use
 #     if contains_functional_group(Smiles[i], "[*]CC([*])(CC(=O)OCCCC)C(=O)OCCCC"):
 #         count+=1
 # print(count)
+
+
+
+def get_fasta_ids_and_sequences(fasta_file):
+    ids, sequences = [], []
+    for record in SeqIO.parse(fasta_file, "fasta"):
+        ids.append(record.id)
+        sequences.append(str(record.seq))
+    return ids, sequences
+
+"""
+Example Usage
+fasta_file = 'path_to_your_fasta_file.fasta'
+sequence_ids, sequences = get_fasta_ids_and_sequences(fasta_file)
+print(sequence_ids)
+print(sequences)
+"""
+
 
 
 def generate_fasta(rna_sequences, names=None, fasta_file_path='output.fasta', reverse=False):

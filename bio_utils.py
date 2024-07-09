@@ -312,3 +312,32 @@ input_fasta = "output.fasta"  # 输入的FASTA文件路径
 output_dir = "output/"  # 输出目录
 split_fasta(input_fasta, output_dir)
 '''
+
+
+def parse_RNAfold(file_path):
+    '''
+    Transfer a RNA secondary structure file into secondary structure dict. 
+    '''
+    sequences_dict = {}
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith('>'):
+                seq_name = line[1:]
+                i += 2
+                sequence = ''
+                while i < len(lines) and not lines[i].startswith('>'):
+                    sequence += lines[i].split()[0]
+                    i += 1
+                sequences_dict[seq_name] = sequence
+            else:
+                i += 1
+    return sequences_dict
+
+'''
+# Example usage:
+Robin_path = 'Robin/RNAfold.out'  # replace with your filepath
+Robin_RNA_ss = parse_RNAfold(Robin_path)
+'''

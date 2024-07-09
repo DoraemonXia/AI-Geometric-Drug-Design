@@ -341,3 +341,31 @@ def parse_RNAfold(file_path):
 Robin_path = 'Robin/RNAfold.out'  # replace with your filepath
 Robin_RNA_ss = parse_RNAfold(Robin_path)
 '''
+
+
+def parse_rna_structure(structure):
+    edges = []
+    stack = []
+    for i, symbol in enumerate(structure):
+        if symbol == '(':
+            stack.append(i)
+        elif symbol == ')':
+            if stack:
+                opening_bracket_index = stack.pop()
+                edges.append((opening_bracket_index, i))
+                edges.append((i, opening_bracket_index))
+    
+    for i in range(len(structure)-1):
+        edges.append( (i, i+1) )
+        edges.append( (i+1, i) )
+    return edges
+
+'''
+# Example usage:
+Robin_RNA_Graph = {}
+for i in Robin_sequences.keys():
+    x = torch.tensor( Robin_RNA_FM_repre[i] , dtype=torch.float)  #modify torch.long=>torch.float  #node features
+    edge_index = torch.tensor(np.array(parse_rna_structure(Robin_RNA_ss[i]) ).T, dtype=torch.long)  #transfer rna_structure into edge_index
+    data = Data(x=x, edge_index=edge_index)
+    Robin_RNA_Graph[i]=data
+'''

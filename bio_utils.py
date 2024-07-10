@@ -408,8 +408,48 @@ def load_multiple_mol2(file_path):
     
     return mol_list
 
-
 '''
 # Example usage:
 small_molecules = load_multiple_mol2("RLDock/RLDock/mol_0/_cluster.mol2")
 '''
+
+
+def load_rna_bases_from_mol2(file_path):
+    """
+    Load RNA bases from a MOL2 file and return a list of atom indices for each base.
+    
+    Parameters:
+    - file_path (str): Path to the MOL2 file.
+    
+    Returns:
+    - base_atoms (list of list of int): List of atom indices for each base in the RNA.
+    """
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+    
+    base_atoms = {}
+    
+    in_atom_section = False
+
+    for line in lines:
+        if line.startswith("@<TRIPOS>ATOM"):
+            in_atom_section = True
+        elif line.startswith("@<TRIPOS>"):
+            in_atom_section = False
+        elif in_atom_section:
+            tokens = line.split()
+            atom_index = int(tokens[0]) - 1  # Atom index starts from 1 in MOL2
+            base_index = int(tokens[6])      # Base index from the 8th column
+
+            if base_index not in base_atoms:
+                base_atoms[base_index] = []
+            
+            base_atoms[base_index].append(atom_index)
+    
+    return [base_atoms[key] for key in sorted(base_atoms.keys())]
+
+'''
+# Example usage:
+rna_base_atoms = load_rna_bases_from_mol2(rna_file_path)
+'''
+

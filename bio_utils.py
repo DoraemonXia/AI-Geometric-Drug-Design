@@ -369,3 +369,47 @@ for i in Robin_sequences.keys():
     data = Data(x=x, edge_index=edge_index)
     Robin_RNA_Graph[i]=data
 '''
+
+from rdkit import Chem
+
+def load_multiple_mol2(file_path):
+    """
+    Load a MOL2 file containing multiple molecules and return a list of molecule objects.
+    
+    Parameters:
+    - file_path (str): Path to the MOL2 file.
+    
+    Returns:
+    - mol_list (list of rdkit.Chem.rdchem.Mol): List of molecule objects.
+    """
+    mol_list = []
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+    
+    mol_block = []
+    for line in lines:
+        if line.startswith('@<TRIPOS>MOLECULE'):
+            if mol_block:
+                mol = Chem.MolFromMol2Block(''.join(mol_block), sanitize=False)
+                if mol is not None:
+                    mol_list.append(mol)
+            mol_block = [line]
+        else:
+            mol_block.append(line)
+    
+    # Add the last molecule
+    if mol_block:
+        mol = Chem.MolFromMol2Block(''.join(mol_block), sanitize=False)
+        if mol is not None:
+            mol_list.append(mol)
+    
+    if not mol_list:
+        raise ValueError(f"Failed to load any molecules from {file_path}")
+    
+    return mol_list
+
+
+'''
+# Example usage:
+small_molecules = load_multiple_mol2("RLDock/RLDock/mol_0/_cluster.mol2")
+'''

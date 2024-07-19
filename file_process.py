@@ -72,3 +72,4 @@ output_image_path = "pic/Pic_new/SAM_II_new.png"  # output filepath of graph
 convert_white_to_transparent(input_image_path, output_image_path)
 print(f"Saved transparent image to {output_image_path}")
 """
+

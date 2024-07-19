@@ -453,3 +453,59 @@ def load_rna_bases_from_mol2(file_path):
 rna_base_atoms = load_rna_bases_from_mol2(rna_file_path)
 '''
 
+from rdkit import Chem
+from rdkit.Chem import Draw
+from PIL import Image
+
+def smiles_to_png(smiles, output_file):
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError("Invalid SMILES string")
+
+    img = Draw.MolToImage(mol, size=(300, 300), kekulize=True, wedgeBonds=True, includeAtomNumbers=False)
+    img = img.convert("RGBA")
+
+    datas = img.getdata()
+    new_data = []
+    for item in datas:
+        if item[0] == 255 and item[1] == 255 and item[2] == 255:
+            new_data.append((255, 255, 255, 0))  # 将白色背景设置为透明
+        else:
+            new_data.append(item)
+    img.putdata(new_data)
+
+    img.save(output_file, "PNG")
+
+'''
+# Example usage:
+smiles = "CN1C(=O)N(C)c2nc[nH]c2C1=O"
+output_file = "1eht.png"
+smiles_to_png(smiles, output_file)
+'''
+
+
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+def save_multiple_conformers_to_sdf(smiles, num_confs=100, output_file='output.sdf'):
+    mol = Chem.MolFromSmiles(smiles)
+    mol = Chem.AddHs(mol)
+
+    params = AllChem.ETKDG()
+    conf_ids = AllChem.EmbedMultipleConfs(mol, numConfs=num_confs, params=params)
+    
+    # 优化每个构象
+    results = AllChem.UFFOptimizeMoleculeConfs(mol, numThreads=4)
+
+    writer = Chem.SDWriter(output_file)
+    for conf_id, (energy, _) in zip(conf_ids, results):
+        mol.SetProp("_Name", f'Conformer_{conf_id}_Energy_{energy}')
+        writer.write(mol, confId=conf_id)
+        print(f"Conformer ID: {conf_id}, Energy: {energy}")
+    writer.close()
+
+'''
+# Example usage:
+smiles = "Cc1ccc(CNC(c2nccn2C)c2ccc(F)cc2)cc1C"  # 示例SMILES
+save_multiple_conformers_to_sdf(smiles, num_confs=100, output_file='mol_0.sdf')
+'''

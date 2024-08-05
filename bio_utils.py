@@ -509,3 +509,32 @@ def save_multiple_conformers_to_sdf(smiles, num_confs=100, output_file='output.s
 smiles = "Cc1ccc(CNC(c2nccn2C)c2ccc(F)cc2)cc1C"  # 示例SMILES
 save_multiple_conformers_to_sdf(smiles, num_confs=100, output_file='mol_0.sdf')
 '''
+
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+def translate_molecule(sdf_file, output_file, dx, dy, dz):
+    # read sdf files
+    suppl = Chem.SDMolSupplier(sdf_file)
+    writer = Chem.SDWriter(output_file)
+    
+    for mol in suppl:
+        if mol is None:
+            continue
+        # get all coordinates from mol.
+        conf = mol.GetConformer()
+        for atom_idx in range(mol.GetNumAtoms()):
+            pos = list(conf.GetAtomPosition(atom_idx))
+            # move coords
+            pos[0] += dx
+            pos[1] += dy
+            pos[2] += dz
+            conf.SetAtomPosition(atom_idx, pos)
+        # write in new files.
+        writer.write(mol)
+    writer.close()
+
+'''
+# Example usage:
+translate_molecule('mol/mol_0.sdf', 'mol/output.sdf', -4, 15, 15)
+'''

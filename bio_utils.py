@@ -538,3 +538,119 @@ def translate_molecule(sdf_file, output_file, dx, dy, dz):
 # Example usage:
 translate_molecule('mol/mol_0.sdf', 'mol/output.sdf', -4, 15, 15)
 '''
+
+
+
+import os
+def convert_pdb_to_sdf(input_folder):
+    '''
+    Leverage obabel to transform mol.pdb to sdf.
+    '''
+    failed_conversions = []  # 存储转换失败的文件名
+
+    # 遍历文件夹中的所有文件
+    for filename in os.listdir(input_folder):
+        # 检查文件是否以 .pdb 结尾
+        if filename.endswith(".pdb"):
+            pdb_file = os.path.join(input_folder, filename)
+            sdf_file = os.path.join(input_folder, filename.replace(".pdb", ".sdf"))
+            
+            # 构建 Open Babel 命令
+            command = f"obabel -i pdb {pdb_file} -o sdf -O {sdf_file}"
+            
+            # 执行命令并检查返回值
+            result = os.system(command)
+            if result != 0:
+                # 如果命令执行失败，记录文件名
+                failed_conversions.append(filename)
+                print(f"Failed to convert {pdb_file}")
+            else:
+                print(f"Converted {pdb_file} to {sdf_file}")
+
+    return failed_conversions
+
+'''
+# Example usage:
+input_folder = "source_data/Hariboss/mol/"  # 替换为你的 PDB 文件所在的文件夹
+failed_files = convert_pdb_to_sdf(input_folder)
+'''
+
+
+'''
+Then we will display how to get ligand from .cif file and transform it into pdb.
+I think its' mean just use obabel to add bonds.
+'''
+
+from rdkit.Chem import rdmolfiles
+def save_mol_to_pdb(mol, filename):
+    """
+    将 RDKit 的 mol 对象保存为 PDB 格式文件。
+
+    :param mol: RDKit 的 mol 对象
+    :param filename: 保存的文件名（包括路径）
+    """
+    if mol is None:
+        raise ValueError("Invalid molecule object.")
+    
+    # 保存为 PDB 文件
+    with open(filename, 'w') as pdb_file:
+        pdb_block = Chem.MolToPDBBlock(mol)
+        pdb_file.write(pdb_block)
+
+
+from Bio.PDB import MMCIFParser
+
+def extract_ligand_info_from_cif(cif_file, ligand_name, chain_id="A" ):
+    """
+    从 CIF 文件中提取指定配体的原子信息。
+    
+    参数:
+    - cif_file: CIF 文件的路径
+    - ligand_name: 配体的名称
+    
+    返回:
+    - ligand_info: 一个包含配体原子信息的字典
+    """
+    parser = MMCIFParser(QUIET=True)
+    structure = parser.get_structure("structure", cif_file)[0]
+
+    ligand_info = {}
+    atoms = []
+    for chain in structure:
+        if chain.id!=chain_id:
+            continue
+        not_found_residue = True
+        for residue in chain:
+            #print(residue.resname)
+            if residue.resname not in ['A', 'C', 'G', 'U', 'T']:
+                if residue.resname == ligand_name and not_found_residue:
+                    not_found_residue = False
+                    for atom in residue.get_atoms():
+                        atom_name = atom.get_id()  # 提取原子名
+                        residue_name = residue.get_resname()  # 提取残基名
+                        x, y, z = atom.get_coord()  # 提取坐标
+                        atoms.append((atom_name, residue_name, x, y, z))
+                    
+                        
+    mol = Chem.RWMol()
+    
+    # add atoms
+    atom_indices = {}
+    for idx, (atom_name, residue_name, x, y, z) in enumerate(atoms):
+        atom_idx = mol.AddAtom(Chem.Atom(atom_name[0]))
+        atom_indices[idx] = atom_idx
+    
+    # 添加坐标
+    conf = Chem.Conformer(mol.GetNumAtoms())
+    for idx, (atom_name, residue_name, x, y, z) in enumerate(atoms):
+        conf.SetAtomPosition(atom_indices[idx], (float(x), float(y), float(z)))
+    
+    mol.AddConformer(conf)
+    return mol
+
+'''
+for i in range(len(rna_list)):
+    cif_file = "/home/raojh/datasets/HARIBOSS/cifs/"+rna_list[i]+".cif"
+    mol = extract_ligand_info_from_cif(cif_file, smile_name[i], smile_chain[i] )
+    save_mol_to_pdb(mol, 'source_data/Hariboss/mol/'+rna_list[i]+'_mol_'+str(i)+'.pdb')
+'''

@@ -649,8 +649,247 @@ def extract_ligand_info_from_cif(cif_file, ligand_name, chain_id="A" ):
     return mol
 
 '''
+Example Usage
 for i in range(len(rna_list)):
     cif_file = "/home/raojh/datasets/HARIBOSS/cifs/"+rna_list[i]+".cif"
     mol = extract_ligand_info_from_cif(cif_file, smile_name[i], smile_chain[i] )
     save_mol_to_pdb(mol, 'source_data/Hariboss/mol/'+rna_list[i]+'_mol_'+str(i)+'.pdb')
+'''
+
+
+#read atom in a chain from cif and save it into pdb
+from Bio.PDB import MMCIFParser, PDBIO, Select
+
+def extract_rna_atoms_from_cif(cif_file, chain_id=-1):
+    """
+    从 CIF 文件中提取指定链或所有链上的 RNA 原子的列表，并生成可用于创建新 PDB 文件的结构。
+    
+    参数:
+    - cif_file: CIF 文件的路径
+    - chain_id: 要提取的链的 ID。如果为 -1，提取所有链上的 RNA 原子。
+    
+    返回:
+    - rna_atoms: 一个包含指定链上 RNA 原子的列表
+    """
+    parser = MMCIFParser(QUIET=True)
+    structure = parser.get_structure("structure", cif_file)[0]
+
+    rna_atoms = []
+    rna_bases = {"A", "U", "C", "G"}  # RNA 的四种碱基
+
+    for chain in structure:
+        if chain_id != -1 and chain.id != chain_id:
+            continue
+
+        for residue in chain:
+            if residue.resname in rna_bases:
+                for atom in residue.get_atoms():
+                    rna_atoms.append(atom)
+    
+    return rna_atoms
+
+def save_atoms_to_pdb_simple(atoms, output_file):
+    """
+    将提取的 RNA 原子保存为 PDB 文件（简化版）。
+    
+    参数:
+    - atoms: 包含 RNA 原子的列表
+    - output_file: 保存的 PDB 文件路径
+    """
+    with open(output_file, 'w') as pdb_file:
+        for i, atom in enumerate(atoms, start=1):
+            atom_line = (
+                f"ATOM  {i:5d} {atom.get_name():>4} {atom.get_parent().get_resname():>3} "
+                f"{atom.get_parent().get_parent().id:>1}{atom.get_parent().id[1]:>4}    "
+                f"{atom.coord[0]:8.3f}{atom.coord[1]:8.3f}{atom.coord[2]:8.3f}"
+                f"  1.00  0.00           {atom.element:>2}\n"
+            )
+            pdb_file.write(atom_line)
+        pdb_file.write("END\n")
+
+'''
+Example Usage
+cif_file = "/home/raojh/datasets/HARIBOSS/cifs/8hba.cif"
+rna_atoms = extract_rna_atoms_from_cif(cif_file, chain_id=-1)
+output_pdb_file = "rna_chain_A.pdb"
+save_atoms_to_pdb_simple(rna_atoms, output_pdb_file)
+
+extract_rna_atoms_from_cif  这个有时候会出现读不到原子的情况,所以需要重新下载pdb,然后重新读pdb
+
+'''
+
+
+import os
+import requests
+def download_pdb_files(pdb_ids, output_folder, timeout=600):
+    """
+    批量下载指定 PDB ID 的 PDB 文件到指定文件夹。如果PDB文件下载失败，则尝试下载CIF文件。
+
+    参数:
+    - pdb_ids (list of str): PDB ID 列表。
+    - output_folder (str): 下载的 PDB 文件保存的文件夹路径。
+    - timeout (int): 下载等待时间（秒），默认为600秒。
+    """
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    pdb_base_url = "https://files.rcsb.org/download/"
+    cif_base_url = "https://files.rcsb.org/download/"
+
+    for pdb_id in pdb_ids:
+        pdb_id = pdb_id.upper()
+        pdb_url = f"{pdb_base_url}{pdb_id}.pdb"
+        cif_url = f"{cif_base_url}{pdb_id}.cif"
+
+        try:
+            response = requests.get(pdb_url, timeout=timeout)
+
+            if response.status_code == 200:
+                file_path = os.path.join(output_folder, f"{pdb_id}.pdb")
+                with open(file_path, "wb") as f:
+                    f.write(response.content)
+                print(f"{pdb_id}.pdb 已下载并保存到 {file_path}")
+            else:
+                print(f"下载 {pdb_id}.pdb 失败，状态码: {response.status_code}")
+                # 尝试下载 CIF 文件
+                download_cif_file(cif_url, pdb_id, output_folder, timeout)
+
+        except requests.exceptions.Timeout:
+            print(f"下载 {pdb_id}.pdb 超时，尝试下载 CIF 文件。")
+            download_cif_file(cif_url, pdb_id, output_folder, timeout)
+        except requests.exceptions.RequestException as e:
+            print(f"下载 {pdb_id}.pdb 出现错误: {e}，尝试下载 CIF 文件。")
+            download_cif_file(cif_url, pdb_id, output_folder, timeout)
+
+def download_cif_file(url, pdb_id, output_folder, timeout):
+    """
+    尝试下载CIF文件。
+
+    参数:
+    - url (str): CIF 文件的下载链接。
+    - pdb_id (str): PDB ID，用于命名文件。
+    - output_folder (str): 下载的文件保存的文件夹路径。
+    - timeout (int): 下载等待时间（秒）。
+    """
+    try:
+        response = requests.get(url, timeout=timeout)
+        if response.status_code == 200:
+            file_path = os.path.join(output_folder, f"{pdb_id}.cif")
+            with open(file_path, "wb") as f:
+                f.write(response.content)
+            print(f"{pdb_id}.cif 已下载并保存到 {file_path}")
+        else:
+            print(f"下载 {pdb_id}.cif 失败，状态码: {response.status_code}")
+    except requests.exceptions.Timeout:
+        print(f"下载 {pdb_id}.cif 超时，跳过此文件。")
+    except requests.exceptions.RequestException as e:
+        print(f"下载 {pdb_id}.cif 出现错误: {e}")
+
+'''
+Example Usage
+download_pdb_files(["5afi"], "source_data/Hariboss/pdb/")  #默认下载pdb,不提供pdb的情况下则下载cif
+'''
+
+#保存完RNA简化的分子后，下一步需要将其转化为需要的坐标列表
+from Bio.PDB import PDBParser
+
+def load_rna_bases_from_pdb(file_path, return_seq=False, chain_id=-1):
+    """
+    从PDB文件中加载RNA碱基并返回每个碱基对应的原子列表。
+    
+    参数:
+    - file_path (str): PDB文件的路径。
+    - return_seq (bool): 是否返回序列信息。如果为True，则返回序列。
+    - chain_id (str/int): 要提取的链的 ID。如果为-1，提取所有链上的 RNA 原子。
+
+    返回:
+    - base_atoms (dict): 每个碱基的原子列表，键为碱基ID（序号+碱基名，如 17_G），值为原子坐标的列表。
+    - rna_sequences (list): 如果return_seq为True，则返回序列信息列表。
+    """
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("structure", file_path)
+
+    base_atoms = {}
+    rna_sequences = []  # 存储每条链的序列信息
+    rna_bases = {"A", "U", "C", "G"}  # RNA 的四种碱基
+    index = 1  # 用于生成序号
+
+    for model in structure:
+        for chain in model:
+            if chain_id != -1 and chain.id != chain_id:
+                continue
+
+            chain_seq = []
+            for residue in chain:
+                resname = residue.get_resname().strip()
+                if resname in rna_bases:
+                    base_id = f"{index}_{resname}"  # 生成序号+碱基名的ID
+                    atoms = [atom.get_coord() for atom in residue]
+                    base_atoms[base_id] = atoms
+                    if return_seq:
+                        chain_seq.append(resname)
+                    index += 1
+
+            if return_seq and chain_seq:
+                rna_sequences.append("".join(chain_seq))
+
+    if return_seq:
+        return base_atoms, rna_sequences
+    else:
+        return base_atoms
+
+#配套对应的
+def convert_base_atoms_to_matrix(base_atoms):
+    # 对每个碱基，提取原子坐标并将其转换为矩阵
+    base_matrices = {}
+    for base_key, atom_coords in base_atoms.items():
+        # 将 atom_coords 列表转换为 n*3 的矩阵
+        base_matrix = np.array(atom_coords)
+        base_matrices[base_key] = base_matrix
+    return base_matrices
+
+#对应计算其接触矩阵的函数
+import numpy as np
+def calculate_min_distance_matrix(base_atoms, mol_coords):
+    # 初始化距离矩阵
+    num_bases = len(base_atoms)
+    num_mol_atoms = len(mol_coords)
+    distance_matrix = np.zeros((num_bases, num_mol_atoms))
+    
+    # 遍历每个碱基
+    for i, (base_key, base_coords) in enumerate(base_atoms.items()):
+        # 遍历分子中的每个原子
+        for j, mol_coord in enumerate(mol_coords):
+            # 计算分子原子与当前碱基中所有原子的距离
+            distances = np.linalg.norm(base_coords - mol_coord, axis=1)
+            # 取最短距离
+            min_distance = np.min(distances)
+            distance_matrix[i, j] = min_distance
+    
+    return distance_matrix
+
+'''
+Example Usage
+
+rna_seq_list = []
+pairwise_list = []
+
+for i in range(len(rna_list)):
+    pdb_file = "source_data/Hariboss/rna/"+rna_list[i]+"_"+rna_chain[i]+".pdb"
+    base_atoms, rna_seq = load_rna_bases_from_pdb(pdb_file, return_seq=True, chain_id=rna_chain[i])
+
+    rna_seq_list.append(rna_seq[0])
+    supplier = Chem.SDMolSupplier("source_data/Hariboss/mol/"+rna_list[i]+"_mol_"+str(i)+".sdf",sanitize=False)
+    for mol in supplier:
+        coords = []
+        for atom in mol.GetAtoms():
+            pos = mol.GetConformer().GetAtomPosition(atom.GetIdx())
+            coords.append({"atom_id": atom.GetIdx(), "position": (pos.x, pos.y, pos.z)})
+
+    base_matrices = convert_base_atoms_to_matrix(base_atoms)
+    coord_matrix = convert_atom_dict_to_matrix(coords)
+
+    distance_matrix = calculate_min_distance_matrix(base_matrices, coord_matrix)
+    
+    pairwise_list.append(distance_matrix)
 '''

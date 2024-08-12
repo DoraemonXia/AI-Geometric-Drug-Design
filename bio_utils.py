@@ -893,3 +893,31 @@ for i in range(len(rna_list)):
     
     pairwise_list.append(distance_matrix)
 '''
+
+
+def extract_atom_coordinates(pdb_file, atoms_to_extract = ['C4\''] ):
+    '''
+    Extract the atoms which you want from pdb files.
+    '''
+    #atoms_to_extract = ['C4\'', 'N1', 'P']
+    #atoms_to_extract = ['C4\'']
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure('structure', pdb_file)
+
+    coordinates_list = []
+    atom_list = []
+    for model in structure:
+        for chain in model:
+            for residue in chain:
+                if residue.get_id()[0] == ' ':
+                    atoms = {atom.name: atom for atom in residue.get_atoms()}
+                    coordinates = [atoms[atom_name].get_coord() for atom_name in atoms if atom_name in atoms_to_extract]
+                    atom_name = [atoms[atom_name].name for atom_name in atoms if atom_name in atoms_to_extract]
+                    atom_list.extend( [RNA_atom_id[i] for i in atom_name ] )
+                    coordinates_list.extend(coordinates)
+    return np.array(atom_list),np.array(coordinates_list)
+
+'''
+Example Usage
+C4_coords = extract_atom_coordinates(pdb_file_path)
+'''

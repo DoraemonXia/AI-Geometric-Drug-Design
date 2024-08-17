@@ -921,3 +921,39 @@ def extract_atom_coordinates(pdb_file, atoms_to_extract = ['C4\''] ):
 Example Usage
 C4_coords = extract_atom_coordinates(pdb_file_path)
 '''
+
+
+import os
+
+def convert_pdb_to_sdf(input_folder):
+    '''
+    Transform .pdb files into .sdf files in a specific folder.
+    '''
+    failed_conversions = []  # 存储转换失败的文件名
+
+    # 遍历文件夹中的所有文件
+    for filename in os.listdir(input_folder):
+        # 检查文件是否以 .pdb 结尾
+        if filename.endswith(".pdb"):
+            pdb_file = os.path.join(input_folder, filename)
+            sdf_file = os.path.join(input_folder, filename.replace(".pdb", ".sdf"))
+            
+            # 构建 Open Babel 命令
+            command = f"obabel -i pdb {pdb_file} -o sdf -O {sdf_file} -d"   # -d is used to remove H atoms.
+            
+            # 执行命令并检查返回值
+            result = os.system(command)
+            if result != 0:
+                # 如果命令执行失败，记录文件名
+                failed_conversions.append(filename)
+                print(f"Failed to convert {pdb_file}")
+            else:
+                print(f"Converted {pdb_file} to {sdf_file}")
+
+    return failed_conversions
+
+'''
+Example Usage
+input_folder = "source_data/Hariboss/mol/"  # 替换为你的 PDB 文件所在的文件夹
+failed_files = convert_pdb_to_sdf(input_folder)
+'''

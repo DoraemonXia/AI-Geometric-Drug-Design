@@ -100,6 +100,31 @@ names = ["seq_1", "seq_2", "seq_3"]
 generate_fasta(rna_sequences, names, fasta_file_path='output.fasta', reverse=True)
 '''
 
+
+# 合并文件夹下的fasta文件, sequence_index可指定None或fasta文件的第几个序列.(在proteinmpnn/ligandmpnn生成序列时会用到)
+import os
+from Bio import SeqIO
+
+def extract_fasta_ids(input_folder, output_file, sequence_index=None):
+    with open(output_file, 'w') as outfile:
+        for filename in os.listdir(input_folder):
+            if filename.endswith('.fasta') or filename.endswith('.fa'):
+                file_path = os.path.join(input_folder, filename)
+                sequences = list(SeqIO.parse(file_path, "fasta"))
+
+                if sequence_index is not None:
+                    if len(sequences) > sequence_index:
+                        SeqIO.write(sequences[sequence_index], outfile, "fasta")
+                else:
+                    SeqIO.write(sequences, outfile, "fasta")
+
+'''
+# Example usage:
+input_folder = "/xcfhome/ypxia/Workspace/LigandMPNN/outputs/ligandmpnn_temperature_01_gn_01/seqs/"
+output_file = "/xcfhome/ypxia/Workspace/esm/esm/results/fasta_ids.fasta"
+extract_fasta_ids(input_folder, output_file, sequence_index=1)
+'''
+
 def smiles_to_ecfp1024(smiles_list):
     fingerprints = []
     for smiles in smiles_list:

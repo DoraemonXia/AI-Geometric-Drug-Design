@@ -307,6 +307,43 @@ def extract_backbone_coords(
     coords = np.vstack([c.coord for c in selected_atoms])
     return coords
 
+import prody as pr
+import os
+
+def extract_backbone_atoms(pdb_file, output_dir):
+    structure = pr.parsePDB(pdb_file)
+
+    chains = list(structure.getHierView().iterChains())
+    
+    for chain in chains:
+        chain_length = len(chain)
+        chain_sequence = chain.getSequence() if chain.getSequence() else "No sequence available"
+
+        if chain_length > 1500:
+            print(f"Chain {chain.getChid()} is too long ({chain_length} residues). Skipping.")
+            return
+
+    first_chain = max(chains, key=lambda chain: len(chain))
+    chain_id = first_chain.getChid()
+
+    backbone_atoms = first_chain.select('name N CA C O')
+
+    if backbone_atoms is None:
+        print(f"No backbone atoms found in chain {chain_id}.")
+        return
+
+    pdb_base_name = os.path.basename(pdb_file).split('.')[0]  # 获取文件名，不含扩展名
+    output_pdb = os.path.join(output_dir, f"{pdb_base_name}_{chain_id}.pdb")
+
+    pr.writePDB(output_pdb, backbone_atoms)
+    print(f"Backbone atoms saved to {output_pdb}")
+
+'''
+Example Usage
+pdb_file = "/xcfhome/ypxia/Workspace/Combs/data/PDB_Download/1a2p.pdb"  # 输入的PDB文件路径
+output_dir = '/xcfhome/ypxia/Workspace/esm/esm/Origin_backbone/'  # 输出文件夹路径
+extract_backbone_atoms(pdb_file, output_dir)
+'''
 
 
 

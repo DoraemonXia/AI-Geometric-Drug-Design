@@ -1019,3 +1019,19 @@ Example Usage
 input_folder = "source_data/Hariboss/mol/"  # 替换为你的 PDB 文件所在的文件夹
 failed_files = convert_pdb_to_sdf(input_folder)
 '''
+
+from Bio import pairwise2
+def calc_identity(seq1, seq2):
+    alignments = pairwise2.align.globalxx(seq1, seq2)
+    best_alignment = alignments[0]
+    seq1_aligned, seq2_aligned = best_alignment[:2]
+    matches = sum(res1 == res2 for res1, res2 in zip(seq1_aligned, seq2_aligned))
+    identity = matches / max(len(seq1), len(seq2))
+    return identity * 100
+
+'''
+Example Usage
+seq1 = "ACGTACGTACGT"
+seq2 = "ACGTTCGTACGT"
+print(f"相似度为: {calc_identity(seq1, seq2):.2f}%")
+'''

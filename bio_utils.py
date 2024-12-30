@@ -900,6 +900,97 @@ def load_rna_bases_from_pdb(file_path, return_seq=False, chain_id=-1):
     else:
         return base_atoms
 
+import numpy as np
+from Bio.PDB import PDBParser
+import gemmi
+
+def load_rna_bases(file_path, return_seq=False, chain_id=-1):
+    """
+    从 PDB 或 CIF 文件中加载 RNA 碱基信息，每个碱基返回一个原子坐标矩阵。
+    
+    参数:
+    - file_path (str): PDB 或 CIF 文件路径。
+    - return_seq (bool): 是否返回序列信息。如果为 True，则返回序列。
+    - chain_id (str/int): 要提取的链 ID。如果为 -1，提取所有链上的 RNA 碱基和原子。
+
+    返回:
+    - base_atoms (dict): 每个碱基的原子坐标矩阵（NumPy 数组），键为碱基ID（如 17_G），值为坐标矩阵。
+    - rna_sequences (dict): 每条链的 RNA 碱基序列（可选，键为链 ID）。
+    """
+    def parse_pdb(file_path):
+        parser = PDBParser(QUIET=True)
+        structure = parser.get_structure("structure", file_path)
+        
+        base_atoms = {}
+        rna_sequences = {}
+        rna_bases = {"A", "U", "C", "G"}  # RNA 的碱基
+        index = 1  # 用于生成序号
+        
+        for model in structure:
+            for chain in model:
+                if chain_id != -1 and chain.id != chain_id:
+                    continue
+
+                chain_seq = []
+                for residue in chain:
+                    resname = residue.get_resname().strip()
+                    if resname in rna_bases:
+                        base_id = f"{index}_{resname}"  # 生成序号+碱基名的 ID
+                        coordinates = [
+                            atom.get_coord() for atom in residue
+                        ]
+                        base_atoms[base_id] = np.array(coordinates)  # 转为 NumPy 数组
+                        chain_seq.append(resname)
+                        index += 1
+
+                if return_seq and chain_seq:
+                    rna_sequences[chain.id] = "".join(chain_seq)
+
+        if return_seq:
+            return base_atoms, rna_sequences
+        else:
+            return base_atoms
+    
+    def parse_cif(file_path):
+        doc = gemmi.cif.read_file(file_path)
+        block = doc[0]  # 默认取第一个 block
+        structure = gemmi.make_structure_from_block(block)
+        
+        base_atoms = {}
+        rna_sequences = {}
+        rna_bases = {"A", "U", "C", "G"}  # RNA 的碱基
+        index = 1  # 用于生成序号
+        
+        for model in structure:
+            for chain in model:
+                if chain_id != -1 and chain.name != chain_id:
+                    continue
+
+                chain_seq = []
+                for residue in chain:
+                    if residue.name in rna_bases:
+                        base_id = f"{index}_{residue.name}"  # 生成序号+碱基名的 ID
+                        coordinates = [
+                            [atom.pos.x, atom.pos.y, atom.pos.z] for atom in residue
+                        ]
+                        base_atoms[base_id] = np.array(coordinates)  # 转为 NumPy 数组
+                        chain_seq.append(residue.name)
+                        index += 1
+
+                if return_seq and chain_seq:
+                    rna_sequences[chain.name] = "".join(chain_seq)
+        if return_seq:
+            return base_atoms, rna_sequences
+        else:
+            return base_atoms
+
+    if file_path.endswith(".pdb"):
+        return parse_pdb(file_path)
+    elif file_path.endswith(".cif"):
+        return parse_cif(file_path)
+    else:
+        raise ValueError("文件格式不支持，仅支持 PDB 和 CIF 格式！")
+
 #配套对应的
 def convert_base_atoms_to_matrix(base_atoms):
     # 对每个碱基，提取原子坐标并将其转换为矩阵

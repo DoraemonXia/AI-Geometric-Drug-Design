@@ -1126,3 +1126,69 @@ seq1 = "ACGTACGTACGT"
 seq2 = "ACGTTCGTACGT"
 print(f"相似度为: {calc_identity(seq1, seq2):.2f}%")
 '''
+
+
+from Bio.PDB.PDBExceptions import PDBConstructionWarning  
+# Ref: biopython 1.79, due to the limitation of prody==2.4.1, there usually has a limitation for biopython version.
+from Bio.PDB import MMCIFParser
+import warnings
+
+def detect_chain_break(cif_path: str) -> bool:
+    """check break in cif file.
+    Args:
+        cif_path: CIF file path
+    Returns:
+        bool: return True if check a break，else return False
+    """
+    with warnings.catch_warnings(record=True) as warn_log:
+        warnings.simplefilter("always", PDBConstructionWarning)
+        
+        parser = MMCIFParser()
+        structure = parser.get_structure('', cif_path)
+        list(structure.get_chains())
+        
+    return any(
+        "discontinuous" in str(w.message).lower()
+        and issubclass(w.category, PDBConstructionWarning)
+        for w in warn_log
+    )
+
+
+from Bio.PDB import MMCIFParser
+
+def get_hetatm_residues(cif_file):
+    '''
+    give a cif file, and return a set of relevant hetatm residues.
+    '''
+    parser = MMCIFParser()
+    structure = parser.get_structure('structure_id', cif_file)
+    het_residues = set()
+    
+    # 只取第一个model（索引从0开始）
+    model = structure[0]
+    
+    for chain in model:
+        for residue in chain:
+            # 直接判断残基是否为异质原子（HETATM）
+            if residue.id[0].strip() != '':  # hetero标志位非空则为HETATM
+                het_residues.add(residue.resname.strip())
+    
+    return het_residues
+
+def merge_fasta_files(fasta_files, output_filename):
+    '''
+    merge fasta files list to output_filename
+    '''
+    with open(output_filename, 'w') as output_file:
+        for i, fasta_file in enumerate(fasta_files):
+            with open(fasta_file, 'r') as f:
+                lines = f.readlines()
+                cleaned_lines = []
+                for line in lines:
+                    line = line.strip()
+                    if line:
+                        cleaned_lines.append(line)
+                if i < len(fasta_files) - 1:
+                    output_file.write("\n".join(cleaned_lines) + "\n")
+                else:
+                    output_file.write("\n".join(cleaned_lines))
